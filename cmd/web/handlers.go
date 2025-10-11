@@ -84,7 +84,7 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 
 	if strings.TrimSpace(form.Title) == "" {
 		form.FieldErrors["title"] = "This Field cannot be empty"
-	} else if utf8.RuneCountInString(form.Content) > 100 {
+	} else if utf8.RuneCountInString(form.Title) > 100 {
 		form.FieldErrors["title"] = "This field cannot be more than 100 chars long"
 	}
 
