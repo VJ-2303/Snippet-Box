@@ -17,6 +17,13 @@ type snippetCreateForm struct {
 	validator.Validator `form:"-"`
 }
 
+type userSignupForm struct {
+	Name     string `form:"name"`
+	Email    string `form:"email"`
+	Password string `form:"password"`
+	validator.Validator
+}
+
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	snippets, err := app.snippets.Latest()
@@ -99,10 +106,49 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 }
 
 func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a form for signing up a new user...")
+	data := app.newTemplateData(r)
+
+	data.Form = userSignupForm{}
+
+	app.render(w, r, http.StatusOK, "signup.tmpl", data)
 }
 func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Create a new user...")
+
+	var form userSignupForm
+
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.ClientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.NotBlank(form.Name), "name", "this field cannot be blank")
+	form.CheckField(validator.NotBlank(form.Email), "email", "this field cannot be empty")
+	form.CheckField(validator.Matches(form.Email, validator.EmailRx), "email", "this field must be an valid email address")
+	form.CheckField(validator.MinChars(form.Password, 8), "password", "this field must be atleast 8 chars Long")
+	form.CheckField(validator.NotBlank(form.Password), "password", "this field cannot be empty")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, r, http.StatusUnprocessableEntity, "signup.tmpl", data)
+		return
+	}
+	err = app.users.Insert(form.Name, form.Email, form.Password)
+	if err != nil {
+		if errors.Is(err, models.ErrDuplicateEmail) {
+			form.AddFieldError("email", "email is already in use")
+			data := app.newTemplateData(r)
+			data.Form = form
+			app.render(w, r, http.StatusUnprocessableEntity, "signup.tmpl", data)
+		} else {
+			app.serverError(w, r, err)
+		}
+		return
+	}
+	app.sessionManager.Put(r.Context(), "flash", "Your signup was successful. Please log in.")
+
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Display a form for logging in a user...")
