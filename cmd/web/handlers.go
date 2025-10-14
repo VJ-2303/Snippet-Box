@@ -18,16 +18,16 @@ type snippetCreateForm struct {
 }
 
 type userSignupForm struct {
-	Name     string `form:"name"`
-	Email    string `form:"email"`
-	Password string `form:"password"`
-	validator.Validator
+	Name                string `form:"name"`
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
 }
 
 type userLoginForm struct {
-	Email    string `form:"email"`
-	Password string `form:"password"`
-	validator.Validator
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
 }
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
