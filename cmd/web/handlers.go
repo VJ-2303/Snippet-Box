@@ -104,7 +104,9 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id, err := app.snippets.Insert(form.Title, form.Content, form.Expires)
+	contextData := r.Context().Value(AuthenticatedUserContextkey).(AuthenticatedUserContext)
+
+	id, err := app.snippets.Insert(contextData.userID, form.Title, form.Content, form.Expires)
 	if err != nil {
 		app.serverError(w, r, err)
 		return
@@ -240,4 +242,17 @@ func (app *application) userAccountGet(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data.User = *user
 	app.render(w, r, http.StatusOK, "account.tmpl", data)
+}
+
+func (app *application) userSnippets(w http.ResponseWriter, r *http.Request) {
+	contextUser := r.Context().Value(AuthenticatedUserContextkey).(AuthenticatedUserContext)
+
+	snippets, err := app.snippets.GetByID(contextUser.userID)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
+	app.render(w, r, http.StatusOK, "user-snippets.tmpl", data)
 }
