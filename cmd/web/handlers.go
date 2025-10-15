@@ -30,6 +30,13 @@ type userLoginForm struct {
 	validator.Validator `form:"-"`
 }
 
+type passwordChangeForm struct {
+	CurrentPassword    string `form:"currentPassword"`
+	NewPassword        string `form:"newPassword"`
+	ConfirmNewPassword string `form:"confirmNewPassword"`
+	validator.Validator
+}
+
 func ping(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
@@ -255,4 +262,54 @@ func (app *application) userSnippets(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data.Snippets = snippets
 	app.render(w, r, http.StatusOK, "user-snippets.tmpl", data)
+}
+
+func (app *application) passwordChange(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+	data.Form = passwordChangeForm{}
+
+	app.render(w, r, http.StatusOK, "password-change.tmpl", data)
+}
+
+func (app *application) passwordChangePost(w http.ResponseWriter, r *http.Request) {
+	var form passwordChangeForm
+
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.ClientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.NotBlank(form.CurrentPassword), "currentPassword", "This field cannot be null")
+	form.CheckField(validator.NotBlank(form.NewPassword), "newPassword", "This field cannot be null")
+	form.CheckField(validator.NotBlank(form.ConfirmNewPassword), "confirmNewPassword", "This field cannot be null")
+	form.CheckField(form.NewPassword == form.ConfirmNewPassword, "confirmNewPassword", "Password is not matching")
+	println(form.CurrentPassword, form.NewPassword, form.ConfirmNewPassword)
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, r, http.StatusUnprocessableEntity, "password-change.tmpl", data)
+		return
+	}
+
+	contextData := r.Context().Value(AuthenticatedUserContextkey).(AuthenticatedUserContext)
+
+	err = app.users.PasswordChange(contextData.userID, form.CurrentPassword, form.NewPassword)
+	if err != nil {
+		app.logger.Error(err.Error())
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			form.AddNonFieldError("The Credentials are not Matching")
+			data := app.newTemplateData(r)
+			data.Form = form
+			app.render(w, r, http.StatusOK, "password-change.tmpl", data)
+		} else {
+			app.serverError(w, r, err)
+		}
+		return
+	}
+	app.sessionManager.RenewToken(r.Context())
+	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
+	app.sessionManager.Put(r.Context(), "flash", "Password changed successfully. Please Login Again..")
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
