@@ -2,4 +2,9 @@ package main
 
 type contextKey string
 
-const isAuthenticatedContextKey = contextKey("isAuthenticated")
+const AuthenticatedUserContextkey = contextKey("User")
+
+type AuthenticatedUserContext struct {
+	isAuthenticated bool
+	userID          int
+}

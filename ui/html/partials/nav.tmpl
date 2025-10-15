@@ -8,6 +8,7 @@
     </div>
     <div>
         {{if .IsAuthenticated}}
+            <a href="/account/view">Account</a>
             <form action='/user/logout' method='POST'>
                 <button>Logout</button>
             </form>

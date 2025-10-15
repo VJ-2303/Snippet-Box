@@ -30,6 +30,10 @@ type userLoginForm struct {
 	validator.Validator `form:"-"`
 }
 
+func ping(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
+}
+
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	snippets, err := app.snippets.Latest()
@@ -217,4 +221,23 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 	app.sessionManager.Put(r.Context(), "flash", "You'va been logged out successfully!")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (app *application) userAccountGet(w http.ResponseWriter, r *http.Request) {
+	contextUser := r.Context().Value(AuthenticatedUserContextkey).(AuthenticatedUserContext)
+
+	user, err := app.users.Get(contextUser.userID)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			data := app.newTemplateData(r)
+			data.Flash = "You are not Logged In"
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+		} else {
+			app.serverError(w, r, err)
+		}
+		return
+	}
+	data := app.newTemplateData(r)
+	data.User = *user
+	app.render(w, r, http.StatusOK, "account.tmpl", data)
 }
